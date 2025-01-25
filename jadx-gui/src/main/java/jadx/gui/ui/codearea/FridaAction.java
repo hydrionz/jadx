@@ -1,7 +1,5 @@
 package jadx.gui.ui.codearea;
 
-import java.awt.event.KeyEvent;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -12,36 +10,29 @@ import org.apache.commons.text.StringEscapeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import jadx.api.ICodeInfo;
 import jadx.api.JavaClass;
 import jadx.api.JavaField;
 import jadx.api.JavaMethod;
-import jadx.api.metadata.ICodeNodeRef;
-import jadx.api.metadata.annotations.NodeDeclareRef;
 import jadx.api.metadata.annotations.VarNode;
-import jadx.api.utils.CodeUtils;
 import jadx.core.codegen.TypeGen;
 import jadx.core.dex.info.MethodInfo;
 import jadx.core.dex.instructions.args.ArgType;
-import jadx.core.dex.nodes.ClassNode;
 import jadx.core.dex.nodes.MethodNode;
 import jadx.core.utils.exceptions.JadxRuntimeException;
 import jadx.gui.treemodel.JClass;
 import jadx.gui.treemodel.JField;
 import jadx.gui.treemodel.JMethod;
 import jadx.gui.treemodel.JNode;
+import jadx.gui.ui.action.ActionModel;
 import jadx.gui.utils.NLS;
 import jadx.gui.utils.UiUtils;
-
-import static javax.swing.KeyStroke.getKeyStroke;
 
 public final class FridaAction extends JNodeAction {
 	private static final Logger LOG = LoggerFactory.getLogger(FridaAction.class);
 	private static final long serialVersionUID = -3084073927621269039L;
 
 	public FridaAction(CodeArea codeArea) {
-		super(NLS.str("popup.frida") + " (f)", codeArea);
-		addKeyBinding(getKeyStroke(KeyEvent.VK_F, 0), "trigger frida");
+		super(ActionModel.FRIDA_COPY, codeArea);
 	}
 
 	@Override
@@ -67,7 +58,7 @@ public final class FridaAction extends JNodeAction {
 			return generateMethodSnippet((JMethod) node);
 		}
 		if (node instanceof JClass) {
-			return generateClassSnippet((JClass) node);
+			return generateClassAllMethodSnippet((JClass) node);
 		}
 		if (node instanceof JField) {
 			return generateFieldSnippet((JField) node);
@@ -76,68 +67,59 @@ public final class FridaAction extends JNodeAction {
 	}
 
 	private String generateMethodSnippet(JMethod jMth) {
-		JavaMethod javaMethod = jMth.getJavaMethod();
-		MethodInfo methodInfo = javaMethod.getMethodNode().getMethodInfo();
-		String methodName = StringEscapeUtils.escapeEcmaScript(methodInfo.getName());
-		String callMethodName = methodName;
-
-		if (methodInfo.isConstructor()) {
-			methodName = "$init";
-			callMethodName = "$new";
-		}
-		String shortClassName = javaMethod.getDeclaringClass().getName();
-
-		String functionUntilImplementation;
-		if (isOverloaded(javaMethod.getMethodNode())) {
-			List<ArgType> methodArgs = methodInfo.getArgumentsTypes();
-			String overloadStr = methodArgs.stream().map(this::parseArgType).collect(Collectors.joining(", "));
-			functionUntilImplementation = String.format("%s[\"%s\"].overload(%s).implementation", shortClassName, methodName, overloadStr);
-		} else {
-			functionUntilImplementation = String.format("%s[\"%s\"].implementation", shortClassName, methodName);
-		}
-
-		List<String> methodArgNames = collectMethodArgNames(javaMethod);
-
-		String functionParametersString = String.join(", ", methodArgNames);
-		String logParametersString =
-				methodArgNames.stream().map(e -> String.format("'%s: ' + %s", e, e)).collect(Collectors.joining(" + ', ' + "));
-		if (logParametersString.length() > 0) {
-			logParametersString = " + ', ' + " + logParametersString;
-		}
-		String functionParameterAndBody = String.format(
-				"%s = function (%s) {\n"
-						+ "    console.log('%s is called'%s);\n"
-						+ "    let ret = this.%s(%s);\n"
-						+ "    console.log('%s ret value is ' + ret);\n"
-						+ "    return ret;\n"
-						+ "};",
-				functionUntilImplementation, functionParametersString, methodName, logParametersString, callMethodName,
-				functionParametersString, methodName);
-
-		return generateClassSnippet(jMth.getJParent()) + "\n" + functionParameterAndBody;
+		return getMethodSnippet(jMth.getJavaMethod(), jMth.getJParent());
 	}
 
-	private List<String> collectMethodArgNames(JavaMethod javaMethod) {
-		ICodeInfo codeInfo = javaMethod.getTopParentClass().getCodeInfo();
-		int mthDefPos = javaMethod.getDefPos();
-		int lineEndPos = CodeUtils.getLineEndForPos(codeInfo.getCodeStr(), mthDefPos);
-		List<String> argNames = new ArrayList<>();
-		codeInfo.getCodeMetadata().searchDown(mthDefPos, (pos, ann) -> {
-			if (pos > lineEndPos) {
-				return Boolean.TRUE; // stop at line end
-			}
-			if (ann instanceof NodeDeclareRef) {
-				ICodeNodeRef declRef = ((NodeDeclareRef) ann).getNode();
-				if (declRef instanceof VarNode) {
-					VarNode varNode = (VarNode) declRef;
-					if (varNode.getMth().equals(javaMethod.getMethodNode())) {
-						argNames.add(varNode.getName());
-					}
-				}
-			}
-			return null;
-		});
-		return argNames;
+	private String generateMethodSnippet(JavaMethod javaMethod, JClass jc) {
+		return getMethodSnippet(javaMethod, jc);
+	}
+
+	private String getMethodSnippet(JavaMethod javaMethod, JClass jc) {
+		MethodNode mth = javaMethod.getMethodNode();
+		MethodInfo methodInfo = mth.getMethodInfo();
+		String methodName;
+		String newMethodName;
+		if (methodInfo.isConstructor()) {
+			methodName = "$init";
+			newMethodName = methodName;
+		} else {
+			methodName = StringEscapeUtils.escapeEcmaScript(methodInfo.getName());
+			newMethodName = StringEscapeUtils.escapeEcmaScript(methodInfo.getAlias());
+		}
+		String overload;
+		if (isOverloaded(mth)) {
+			String overloadArgs = methodInfo.getArgumentsTypes().stream()
+					.map(this::parseArgType).collect(Collectors.joining(", "));
+			overload = ".overload(" + overloadArgs + ")";
+		} else {
+			overload = "";
+		}
+		List<String> argNames = mth.collectArgNodes().stream()
+				.map(VarNode::getName).collect(Collectors.toList());
+		String args = String.join(", ", argNames);
+		String logArgs;
+		if (argNames.isEmpty()) {
+			logArgs = "";
+		} else {
+			logArgs = ": " + argNames.stream().map(arg -> arg + "=${" + arg + "}").collect(Collectors.joining(", "));
+		}
+		String shortClassName = mth.getParentClass().getAlias();
+		String classSnippet = generateClassSnippet(jc);
+		if (methodInfo.isConstructor() || methodInfo.getReturnType() == ArgType.VOID) {
+			// no return value
+			return classSnippet + "\n"
+					+ shortClassName + "[\"" + methodName + "\"]" + overload + ".implementation = function (" + args + ") {\n"
+					+ "    console.log(`" + shortClassName + "." + newMethodName + " is called" + logArgs + "`);\n"
+					+ "    this[\"" + methodName + "\"](" + args + ");\n"
+					+ "};";
+		}
+		return classSnippet + "\n"
+				+ shortClassName + "[\"" + methodName + "\"]" + overload + ".implementation = function (" + args + ") {\n"
+				+ "    console.log(`" + shortClassName + "." + newMethodName + " is called" + logArgs + "`);\n"
+				+ "    let result = this[\"" + methodName + "\"](" + args + ");\n"
+				+ "    console.log(`" + shortClassName + "." + newMethodName + " result=${result}`);\n"
+				+ "    return result;\n"
+				+ "};";
 	}
 
 	private String generateClassSnippet(JClass jc) {
@@ -145,6 +127,15 @@ public final class FridaAction extends JNodeAction {
 		String rawClassName = StringEscapeUtils.escapeEcmaScript(javaClass.getRawName());
 		String shortClassName = javaClass.getName();
 		return String.format("let %s = Java.use(\"%s\");", shortClassName, rawClassName);
+	}
+
+	private String generateClassAllMethodSnippet(JClass jc) {
+		JavaClass javaClass = jc.getCls();
+		String result = "";
+		for (JavaMethod javaMethod : javaClass.getMethods()) {
+			result = result + generateMethodSnippet(javaMethod, jc) + "\n";
+		}
+		return result;
 	}
 
 	private String generateFieldSnippet(JField jf) {
@@ -159,27 +150,24 @@ public final class FridaAction extends JNodeAction {
 				break;
 			}
 		}
-
 		JClass jc = jf.getRootClass();
 		String classSnippet = generateClassSnippet(jc);
 		return String.format("%s\n%s = %s.%s.value;", classSnippet, fieldName, jc.getName(), rawFieldName);
 	}
 
 	public Boolean isOverloaded(MethodNode methodNode) {
-		ClassNode parentClass = methodNode.getParentClass();
-		List<MethodNode> methods = parentClass.getMethods();
-		return methods.stream()
+		return methodNode.getParentClass().getMethods().stream()
 				.anyMatch(m -> m.getName().equals(methodNode.getName())
 						&& !Objects.equals(methodNode.getMethodInfo().getShortId(), m.getMethodInfo().getShortId()));
 	}
 
 	private String parseArgType(ArgType x) {
-		StringBuilder parsedArgType = new StringBuilder("'");
+		String typeStr;
 		if (x.isArray()) {
-			parsedArgType.append(TypeGen.signature(x).replace("/", "."));
+			typeStr = TypeGen.signature(x).replace("/", ".");
 		} else {
-			parsedArgType.append(x);
+			typeStr = x.toString();
 		}
-		return parsedArgType.append("'").toString();
+		return "'" + typeStr + "'";
 	}
 }

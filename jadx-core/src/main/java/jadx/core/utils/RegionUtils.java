@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -26,6 +28,8 @@ import jadx.core.dex.regions.loops.LoopRegion;
 import jadx.core.dex.trycatch.CatchAttr;
 import jadx.core.dex.trycatch.ExceptionHandler;
 import jadx.core.dex.trycatch.TryCatchBlockAttr;
+import jadx.core.dex.visitors.regions.AbstractRegionVisitor;
+import jadx.core.dex.visitors.regions.DepthRegionTraversal;
 import jadx.core.utils.exceptions.JadxRuntimeException;
 
 public class RegionUtils {
@@ -146,20 +150,6 @@ public class RegionUtils {
 		}
 	}
 
-	@Nullable
-	public static IContainer getLastRegion(@Nullable IContainer container) {
-		if (container == null) {
-			return null;
-		}
-		if (container instanceof IBlock || container instanceof IBranchRegion) {
-			return container;
-		}
-		if (container instanceof IRegion) {
-			return getLastRegion(Utils.last(((IRegion) container).getSubBlocks()));
-		}
-		throw new JadxRuntimeException(unknownContainerType(container));
-	}
-
 	public static boolean isExitBlock(MethodNode mth, IContainer container) {
 		if (container instanceof BlockNode) {
 			return BlockUtils.isExitBlock(mth, (BlockNode) container);
@@ -274,6 +264,12 @@ public class RegionUtils {
 		throw new JadxRuntimeException(unknownContainerType(container));
 	}
 
+	public static List<InsnNode> collectInsns(MethodNode mth, IContainer container) {
+		List<InsnNode> list = new ArrayList<>();
+		visitBlocks(mth, container, block -> list.addAll(block.getInstructions()));
+		return list;
+	}
+
 	public static boolean isEmpty(IContainer container) {
 		return !notEmpty(container);
 	}
@@ -332,6 +328,30 @@ public class RegionUtils {
 			return false;
 		} else {
 			throw new JadxRuntimeException(unknownContainerType(container));
+		}
+	}
+
+	public static IContainer getSingleSubBlock(IContainer container) {
+		if (container instanceof Region) {
+			List<IContainer> subBlocks = ((Region) container).getSubBlocks();
+			if (subBlocks.size() == 1) {
+				return ignoreSimpleRegionWrapper(subBlocks.get(0));
+			}
+		}
+		return null;
+	}
+
+	private static IContainer ignoreSimpleRegionWrapper(IContainer container) {
+		while (true) {
+			if (container instanceof Region) {
+				List<IContainer> subBlocks = ((Region) container).getSubBlocks();
+				if (subBlocks.size() != 1) {
+					return container;
+				}
+				container = subBlocks.get(0);
+			} else {
+				return container;
+			}
 		}
 	}
 
@@ -486,5 +506,33 @@ public class RegionUtils {
 			return "Null container variable";
 		}
 		return "Unknown container type: " + container.getClass();
+	}
+
+	public static void visitBlocks(MethodNode mth, IContainer container, Consumer<IBlock> visitor) {
+		DepthRegionTraversal.traverse(mth, container, new AbstractRegionVisitor() {
+			@Override
+			public void processBlock(MethodNode mth, IBlock block) {
+				visitor.accept(block);
+			}
+		});
+	}
+
+	public static void visitRegions(MethodNode mth, IContainer container, Predicate<IRegion> visitor) {
+		DepthRegionTraversal.traverse(mth, container, new AbstractRegionVisitor() {
+			@Override
+			public boolean enterRegion(MethodNode mth, IRegion region) {
+				return visitor.test(region);
+			}
+		});
+	}
+
+	public static @Nullable IContainer getNextContainer(MethodNode mth, IRegion region) {
+		IRegion parent = region.getParent();
+		List<IContainer> subBlocks = parent.getSubBlocks();
+		int index = subBlocks.indexOf(region);
+		if (index == -1 || index + 1 >= subBlocks.size()) {
+			return null;
+		}
+		return subBlocks.get(index + 1);
 	}
 }

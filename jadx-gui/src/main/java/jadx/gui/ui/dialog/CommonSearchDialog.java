@@ -44,17 +44,21 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ch.qos.logback.classic.Level;
+
+import jadx.gui.logs.LogOptions;
 import jadx.gui.treemodel.JNode;
 import jadx.gui.treemodel.JResSearchNode;
 import jadx.gui.ui.MainWindow;
-import jadx.gui.ui.TabbedPane;
 import jadx.gui.ui.codearea.AbstractCodeArea;
 import jadx.gui.ui.panel.ProgressPanel;
+import jadx.gui.ui.tab.TabsController;
 import jadx.gui.utils.CacheObject;
 import jadx.gui.utils.JNodeCache;
 import jadx.gui.utils.JumpPosition;
 import jadx.gui.utils.NLS;
 import jadx.gui.utils.UiUtils;
+import jadx.gui.utils.ui.NodeLabel;
 
 import static javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED;
 import static javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED;
@@ -63,7 +67,7 @@ public abstract class CommonSearchDialog extends JFrame {
 	private static final Logger LOG = LoggerFactory.getLogger(CommonSearchDialog.class);
 	private static final long serialVersionUID = 8939332306115370276L;
 
-	protected final transient TabbedPane tabbedPane;
+	protected final transient TabsController tabsController;
 	protected final transient CacheObject cache;
 	protected final transient MainWindow mainWindow;
 	protected final transient Font codeFont;
@@ -72,6 +76,7 @@ public abstract class CommonSearchDialog extends JFrame {
 	protected ResultsModel resultsModel;
 	protected ResultsTable resultsTable;
 	protected JLabel resultsInfoLabel;
+	protected JLabel progressInfoLabel;
 	protected JLabel warnLabel;
 	protected ProgressPanel progressPane;
 
@@ -79,7 +84,7 @@ public abstract class CommonSearchDialog extends JFrame {
 
 	public CommonSearchDialog(MainWindow mainWindow, String title) {
 		this.mainWindow = mainWindow;
-		this.tabbedPane = mainWindow.getTabbedPane();
+		this.tabsController = mainWindow.getTabsController();
 		this.cache = mainWindow.getCacheObject();
 		this.codeFont = mainWindow.getSettings().getFont();
 		this.windowTitle = title;
@@ -107,10 +112,11 @@ public abstract class CommonSearchDialog extends JFrame {
 		}
 	}
 
-	public void updateHighlightContext(String text, boolean caseSensitive, boolean regexp) {
+	public void updateHighlightContext(String text, boolean caseSensitive, boolean regexp, boolean wholeWord) {
 		updateTitle(text);
 		highlightContext = new SearchContext(text);
 		highlightContext.setMatchCase(caseSensitive);
+		highlightContext.setWholeWord(wholeWord);
 		highlightContext.setRegularExpression(regexp);
 		highlightContext.setMarkAll(true);
 	}
@@ -139,9 +145,9 @@ public abstract class CommonSearchDialog extends JFrame {
 	protected void openItem(JNode node) {
 		if (node instanceof JResSearchNode) {
 			JumpPosition jmpPos = new JumpPosition(((JResSearchNode) node).getResNode(), node.getPos());
-			tabbedPane.codeJump(jmpPos);
+			tabsController.codeJump(jmpPos);
 		} else {
-			tabbedPane.codeJump(node);
+			tabsController.codeJump(node);
 		}
 		if (!mainWindow.getSettings().getKeepCommonDialogOpen()) {
 			dispose();
@@ -259,6 +265,15 @@ public abstract class CommonSearchDialog extends JFrame {
 		resultsInfoLabel = new JLabel("");
 		resultsInfoLabel.setFont(mainWindow.getSettings().getFont());
 
+		progressInfoLabel = new JLabel("");
+		progressInfoLabel.setFont(mainWindow.getSettings().getFont());
+		progressInfoLabel.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				mainWindow.showLogViewer(LogOptions.allWithLevel(Level.INFO));
+			}
+		});
+
 		JPanel resultsActionsPanel = new JPanel();
 		resultsActionsPanel.setLayout(new BoxLayout(resultsActionsPanel, BoxLayout.LINE_AXIS));
 		resultsActionsPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
@@ -275,6 +290,8 @@ public abstract class CommonSearchDialog extends JFrame {
 	protected void addResultsActions(JPanel resultsActionsPanel) {
 		resultsActionsPanel.add(Box.createRigidArea(new Dimension(20, 0)));
 		resultsActionsPanel.add(resultsInfoLabel);
+		resultsActionsPanel.add(Box.createRigidArea(new Dimension(20, 0)));
+		resultsActionsPanel.add(progressInfoLabel);
 		resultsActionsPanel.add(Box.createHorizontalGlue());
 	}
 
@@ -402,9 +419,9 @@ public abstract class CommonSearchDialog extends JFrame {
 	}
 
 	protected final class ResultsTableCellRenderer implements TableCellRenderer {
-		private final JLabel label;
+		private final NodeLabel label;
 		private final RSyntaxTextArea codeArea;
-		private final JLabel emptyLabel;
+		private final NodeLabel emptyLabel;
 		private final Color codeSelectedColor;
 		private final Color codeBackground;
 
@@ -414,11 +431,11 @@ public abstract class CommonSearchDialog extends JFrame {
 			codeArea.setRows(1);
 			codeBackground = codeArea.getBackground();
 			codeSelectedColor = codeArea.getSelectionColor();
-			label = new JLabel();
+			label = new NodeLabel();
 			label.setOpaque(true);
 			label.setFont(codeArea.getFont());
 			label.setHorizontalAlignment(SwingConstants.LEFT);
-			emptyLabel = new JLabel();
+			emptyLabel = new NodeLabel();
 			emptyLabel.setOpaque(true);
 		}
 
@@ -453,8 +470,9 @@ public abstract class CommonSearchDialog extends JFrame {
 
 		private Component makeCell(JNode node, int column) {
 			if (column == 0) {
+				label.disableHtml(node.disableHtml());
 				label.setText(node.makeLongStringHtml());
-				label.setToolTipText(label.getText());
+				label.setToolTipText(node.getTooltip());
 				label.setIcon(node.getIcon());
 				return label;
 			}
