@@ -46,6 +46,7 @@ import jadx.gui.device.protocol.ADB;
 import jadx.gui.device.protocol.ADBDevice;
 import jadx.gui.utils.NLS;
 import jadx.gui.utils.UiUtils;
+import jadx.gui.utils.ui.NodeLabel;
 
 public class LogcatPanel extends JPanel {
 	private static final Logger LOG = LoggerFactory.getLogger(LogcatPanel.class);
@@ -74,7 +75,7 @@ public class LogcatPanel extends JPanel {
 		this.debugPanel = debugPanel;
 	}
 
-	private ArrayList<Integer> pids;
+	private List<Integer> pids;
 	private JScrollPane logcatScroll;
 	private int pid;
 
@@ -93,7 +94,9 @@ public class LogcatPanel extends JPanel {
 	};
 
 	public boolean showLogcat() {
-		ArrayList<String> pkgs = new ArrayList<>();
+		this.removeAll();
+
+		List<String> pkgs = new ArrayList<>();
 		pids = new ArrayList<>();
 		JPanel procBox;
 		for (ADB.Process proc : procs.subList(1, procs.size())) { // skipping first element because it contains the column label
@@ -301,7 +304,7 @@ public class LogcatPanel extends JPanel {
 		}
 
 		public JPanel getContent() {
-			JLabel label = new JLabel(this.label + ": ");
+			JLabel label = NodeLabel.noHtml(this.label + ": ");
 			CheckComboStore[] stores = new CheckComboStore[ids.length];
 			for (int j = 0; j < ids.length; j++) {
 				stores[j] = new CheckComboStore(index[j], ids[j], Boolean.TRUE);
@@ -368,20 +371,14 @@ public class LogcatPanel extends JPanel {
 		}
 	}
 
-	class CheckComboRenderer implements ListCellRenderer {
-		JCheckBox checkBox;
-		ArrayList<JCheckBox> boxes = new ArrayList<>();
-
-		public CheckComboRenderer() {
-			checkBox = new JCheckBox();
-		}
+	private static class CheckComboRenderer implements ListCellRenderer {
+		private final JCheckBox checkBox = new JCheckBox();
 
 		public Component getListCellRendererComponent(JList list, Object value,
 				int index, boolean isSelected, boolean cellHasFocus) {
 			CheckComboStore store = (CheckComboStore) value;
 			checkBox.setText(store.id);
 			checkBox.setSelected(store.state);
-			boxes.add(checkBox);
 			return checkBox;
 		}
 	}

@@ -17,61 +17,61 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.github.hqktech.JDWP;
-import io.github.hqktech.JDWP.ArrayReference.Length.LengthReplyData;
-import io.github.hqktech.JDWP.ByteBuffer;
-import io.github.hqktech.JDWP.Event.Composite.BreakpointEvent;
-import io.github.hqktech.JDWP.Event.Composite.ClassPrepareEvent;
-import io.github.hqktech.JDWP.Event.Composite.ClassUnloadEvent;
-import io.github.hqktech.JDWP.Event.Composite.EventData;
-import io.github.hqktech.JDWP.Event.Composite.ExceptionEvent;
-import io.github.hqktech.JDWP.Event.Composite.FieldAccessEvent;
-import io.github.hqktech.JDWP.Event.Composite.FieldModificationEvent;
-import io.github.hqktech.JDWP.Event.Composite.MethodEntryEvent;
-import io.github.hqktech.JDWP.Event.Composite.MethodExitEvent;
-import io.github.hqktech.JDWP.Event.Composite.MethodExitWithReturnValueEvent;
-import io.github.hqktech.JDWP.Event.Composite.MonitorContendedEnterEvent;
-import io.github.hqktech.JDWP.Event.Composite.MonitorContendedEnteredEvent;
-import io.github.hqktech.JDWP.Event.Composite.MonitorWaitEvent;
-import io.github.hqktech.JDWP.Event.Composite.MonitorWaitedEvent;
-import io.github.hqktech.JDWP.Event.Composite.SingleStepEvent;
-import io.github.hqktech.JDWP.Event.Composite.ThreadDeathEvent;
-import io.github.hqktech.JDWP.Event.Composite.ThreadStartEvent;
-import io.github.hqktech.JDWP.Event.Composite.VMDeathEvent;
-import io.github.hqktech.JDWP.Event.Composite.VMStartEvent;
-import io.github.hqktech.JDWP.EventRequest.Set.ClassMatchRequest;
-import io.github.hqktech.JDWP.EventRequest.Set.CountRequest;
-import io.github.hqktech.JDWP.EventRequest.Set.LocationOnlyRequest;
-import io.github.hqktech.JDWP.EventRequest.Set.StepRequest;
-import io.github.hqktech.JDWP.Method.VariableTableWithGeneric.VarTableWithGenericData;
-import io.github.hqktech.JDWP.Method.VariableTableWithGeneric.VarWithGenericSlot;
-import io.github.hqktech.JDWP.ObjectReference;
-import io.github.hqktech.JDWP.ObjectReference.ReferenceType.ReferenceTypeReplyData;
-import io.github.hqktech.JDWP.ObjectReference.SetValues.FieldValueSetter;
-import io.github.hqktech.JDWP.Packet;
-import io.github.hqktech.JDWP.ReferenceType.FieldsWithGeneric.FieldsWithGenericData;
-import io.github.hqktech.JDWP.ReferenceType.FieldsWithGeneric.FieldsWithGenericReplyData;
-import io.github.hqktech.JDWP.ReferenceType.MethodsWithGeneric.MethodsWithGenericData;
-import io.github.hqktech.JDWP.ReferenceType.MethodsWithGeneric.MethodsWithGenericReplyData;
-import io.github.hqktech.JDWP.ReferenceType.Signature.SignatureReplyData;
-import io.github.hqktech.JDWP.StackFrame.GetValues.GetValuesReplyData;
-import io.github.hqktech.JDWP.StackFrame.GetValues.GetValuesSlots;
-import io.github.hqktech.JDWP.StackFrame.SetValues.SlotValueSetter;
-import io.github.hqktech.JDWP.StackFrame.ThisObject.ThisObjectReplyData;
-import io.github.hqktech.JDWP.StringReference.Value.ValueReplyData;
-import io.github.hqktech.JDWP.ThreadReference.Frames.FramesReplyData;
-import io.github.hqktech.JDWP.ThreadReference.Frames.FramesReplyDataFrames;
-import io.github.hqktech.JDWP.ThreadReference.Name.NameReplyData;
-import io.github.hqktech.JDWP.VirtualMachine.AllClassesWithGeneric.AllClassesWithGenericData;
-import io.github.hqktech.JDWP.VirtualMachine.AllClassesWithGeneric.AllClassesWithGenericReplyData;
-import io.github.hqktech.JDWP.VirtualMachine.AllThreads.AllThreadsReplyData;
-import io.github.hqktech.JDWP.VirtualMachine.AllThreads.AllThreadsReplyDataThreads;
-import io.github.hqktech.JDWP.VirtualMachine.CreateString.CreateStringReplyData;
-import io.reactivex.annotations.NonNull;
+import io.github.skylot.jdwp.JDWP;
+import io.github.skylot.jdwp.JDWP.ArrayReference.Length.LengthReplyData;
+import io.github.skylot.jdwp.JDWP.ByteBuffer;
+import io.github.skylot.jdwp.JDWP.Event.Composite.BreakpointEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.ClassPrepareEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.ClassUnloadEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.EventData;
+import io.github.skylot.jdwp.JDWP.Event.Composite.ExceptionEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.FieldAccessEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.FieldModificationEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.MethodEntryEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.MethodExitEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.MethodExitWithReturnValueEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.MonitorContendedEnterEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.MonitorContendedEnteredEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.MonitorWaitEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.MonitorWaitedEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.SingleStepEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.ThreadDeathEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.ThreadStartEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.VMDeathEvent;
+import io.github.skylot.jdwp.JDWP.Event.Composite.VMStartEvent;
+import io.github.skylot.jdwp.JDWP.EventRequest.Set.ClassMatchRequest;
+import io.github.skylot.jdwp.JDWP.EventRequest.Set.CountRequest;
+import io.github.skylot.jdwp.JDWP.EventRequest.Set.LocationOnlyRequest;
+import io.github.skylot.jdwp.JDWP.EventRequest.Set.StepRequest;
+import io.github.skylot.jdwp.JDWP.Method.VariableTableWithGeneric.VarTableWithGenericData;
+import io.github.skylot.jdwp.JDWP.Method.VariableTableWithGeneric.VarWithGenericSlot;
+import io.github.skylot.jdwp.JDWP.ObjectReference;
+import io.github.skylot.jdwp.JDWP.ObjectReference.ReferenceType.ReferenceTypeReplyData;
+import io.github.skylot.jdwp.JDWP.ObjectReference.SetValues.FieldValueSetter;
+import io.github.skylot.jdwp.JDWP.Packet;
+import io.github.skylot.jdwp.JDWP.ReferenceType.FieldsWithGeneric.FieldsWithGenericData;
+import io.github.skylot.jdwp.JDWP.ReferenceType.FieldsWithGeneric.FieldsWithGenericReplyData;
+import io.github.skylot.jdwp.JDWP.ReferenceType.MethodsWithGeneric.MethodsWithGenericData;
+import io.github.skylot.jdwp.JDWP.ReferenceType.MethodsWithGeneric.MethodsWithGenericReplyData;
+import io.github.skylot.jdwp.JDWP.ReferenceType.Signature.SignatureReplyData;
+import io.github.skylot.jdwp.JDWP.StackFrame.GetValues.GetValuesReplyData;
+import io.github.skylot.jdwp.JDWP.StackFrame.GetValues.GetValuesSlots;
+import io.github.skylot.jdwp.JDWP.StackFrame.SetValues.SlotValueSetter;
+import io.github.skylot.jdwp.JDWP.StackFrame.ThisObject.ThisObjectReplyData;
+import io.github.skylot.jdwp.JDWP.StringReference.Value.ValueReplyData;
+import io.github.skylot.jdwp.JDWP.ThreadReference.Frames.FramesReplyData;
+import io.github.skylot.jdwp.JDWP.ThreadReference.Frames.FramesReplyDataFrames;
+import io.github.skylot.jdwp.JDWP.ThreadReference.Name.NameReplyData;
+import io.github.skylot.jdwp.JDWP.VirtualMachine.AllClassesWithGeneric.AllClassesWithGenericData;
+import io.github.skylot.jdwp.JDWP.VirtualMachine.AllClassesWithGeneric.AllClassesWithGenericReplyData;
+import io.github.skylot.jdwp.JDWP.VirtualMachine.AllThreads.AllThreadsReplyData;
+import io.github.skylot.jdwp.JDWP.VirtualMachine.AllThreads.AllThreadsReplyDataThreads;
+import io.github.skylot.jdwp.JDWP.VirtualMachine.CreateString.CreateStringReplyData;
 
 import jadx.api.plugins.input.data.AccessFlags;
 import jadx.gui.device.debugger.smali.RegisterInfo;
@@ -392,7 +392,7 @@ public class SmaliDebugger {
 
 	public interface MethodEntryListener {
 		/**
-		 * return ture to remove
+		 * return true to remove
 		 */
 		boolean entry(String mthSig);
 	}
@@ -533,7 +533,7 @@ public class SmaliDebugger {
 	/**
 	 * @param startIndex less than 0 means 0
 	 * @param len        less than or equals 0 means the maximum value 99 or the rest of the elements.
-	 * @return An entry, The key is the total length of this array when len is <= 0, otherwise 0,
+	 * @return An entry, The key is the total length of this array when len is &lt;= 0, otherwise 0,
 	 *         the value, if this array is an object array then it's object ids.
 	 */
 	public Entry<Integer, List<Long>> readArray(RuntimeValue reg, int startIndex, int len) throws SmaliDebuggerException {
@@ -1286,10 +1286,13 @@ public class SmaliDebugger {
 		@Override
 		public String getType() {
 			String gen = getSignature();
-			return gen.isEmpty() ? this.slot.signature : gen;
+			if (gen == null || gen.isEmpty()) {
+				return this.slot.signature;
+			}
+			return gen;
 		}
 
-		@NonNull
+		@NotNull
 		@Override
 		public String getSignature() {
 			return this.slot.genericSignature.trim();
@@ -1303,6 +1306,11 @@ public class SmaliDebugger {
 		@Override
 		public int getEndOffset() {
 			return (int) (slot.codeIndex + slot.length);
+		}
+
+		@Override
+		public boolean isMarkedAsParameter() {
+			return false;
 		}
 	}
 
